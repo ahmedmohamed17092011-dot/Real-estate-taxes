@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>نظام التحصيل والتقارير</title>
+<!-- مكتبة XLSX لتصدير ملفات Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f4f7fb;color:#182235}
+header{background:linear-gradient(135deg,#182848,#4b6cb7);color:white;padding:22px 5%;display:flex;justify-content:space-between;align-items:center;gap:20px}
+header h1{margin:0;font-size:25px}.wrap{max-width:1400px;margin:auto;padding:24px 5%}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}nav button{border:0;background:white;padding:12px 18px;border-radius:12px;cursor:pointer;font-weight:bold;color:#334155;box-shadow:0 2px 10px #0000000b}nav button.active{background:#3159b7;color:white}
+.page{display:none}.page.active{display:block}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.card{background:white;border-radius:18px;padding:20px;box-shadow:0 5px 25px #20305012}.stat{font-size:28px;font-weight:bold;margin-top:8px}.label{color:#64748b;font-size:14px}
+form .grid{margin-bottom:16px}.field label{display:block;font-weight:bold;margin-bottom:7px}.field input,.field select,.field textarea{width:100%;padding:12px;border:1px solid #dbe2ea;border-radius:10px;background:#fbfcfe;font-size:15px}.field textarea{min-height:80px}
+.btn{border:0;border-radius:10px;padding:11px 18px;background:#3159b7;color:white;cursor:pointer;font-weight:bold}.btn.secondary{background:#64748b}.btn.danger{background:#c53b4b}.btn.excel{background:#107c41}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.section-title{display:flex;justify-content:space-between;align-items:center;margin:0 0 16px}
+table{width:100%;border-collapse:collapse;background:white;border-radius:14px;overflow:hidden}th,td{padding:11px;border-bottom:1px solid #edf0f4;text-align:center;white-space:nowrap}th{background:#eef3ff;color:#29488d}tr:hover td{background:#fafcff}.table-wrap{overflow:auto;border-radius:14px}
+.notice{padding:13px;background:#eef7ff;border-right:4px solid #3159b7;border-radius:10px;margin-bottom:15px}
+.total{font-weight:bold;background:#f3f6fb}.empty{padding:35px;text-align:center;color:#94a3b8}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}.wrap{padding:18px 3%}}
+</style>
+<style>
+canvas{width:100%!important}.btn.small{padding:7px 10px;font-size:12px}.edit{background:#d97706}.searchbox{margin-bottom:12px}
+@media print{nav,.actions,.notice,header{display:none!important}.wrap{max-width:none;padding:0}.card{box-shadow:none;border:0}}
+</style>
+
+</head>
+<body>
+<header><div><h1>نظام التحصيل والتقارير</h1><small>إدارة البيانات والمتابعة اليومية</small></div><div id="today"></div></header>
+<div class="wrap">
+<nav>
+<button class="active" data-page="home">الرئيسية</button>
+<button data-page="basic">البيانات الأساسية</button>
+<button data-page="report">التقرير</button>
+</nav>
+
+<section id="home" class="page active">
+<div class="grid" id="stats"></div>
+<div class="grid" style="margin-top:18px">
+<div class="card"><h3>إجمالي المحصل حسب النوع</h3><canvas id="moneyChart" height="180"></canvas></div>
+<div class="card"><h3>المطالبات والإعفاءات</h3><canvas id="countChart" height="180"></canvas></div>
+</div>
+<div class="card" style="margin-top:18px">
+<h2 class="section-title">إدخال البيانات اليومية</h2>
+<div class="notice">اختر التاريخ والناحية والعميل، وسيتم جلب المشرف والمستهدف تلقائيًا عند توفرهما.</div>
+<form id="dailyForm">
+<div class="grid">
+<div class="field"><label>التاريخ</label><input type="date" id="date" required></div>
+<div class="field"><label>الناحية</label><select id="area" required></select></div>
+<div class="field"><label>الاسم</label><select id="person"></select></div>
+<div class="field"><label>العميل</label><select id="client" required></select></div>
+<div class="field"><label>المشرف</label><select id="supervisor"></select></div>
+<div class="field"><label>المستهدف</label><input type="number" id="target" min="0" step="0.01" value="0"></div>
+<div class="field"><label>عدد المطالبات</label><input type="number" id="claims" min="0" value="0"></div>
+<div class="field"><label>عدد الإعفاءات</label><input type="number" id="exemptions" min="0" value="0"></div>
+<div class="field"><label>المحصل مديونية</label><input type="number" id="debt" min="0" step="0.01" value="0"></div>
+<div class="field"><label>المحصل تحت الحساب</label><input type="number" id="advance" min="0" step="0.01" value="0"></div>
+<div class="field"><label>الجملة</label><input id="total" readonly value="0"></div>
+<div class="field"><label>ملاحظات</label><textarea id="notes"></textarea></div>
+</div>
+<div class="actions"><button class="btn" type="submit">حفظ البيانات</button><button class="btn secondary" type="reset">مسح</button></div>
+</form></div>
+</section>
+
+<section id="basic" class="page">
+<div class="grid">
+<div class="card"><h3>إضافة ناحية</h3><form id="areaForm"><input id="newArea" placeholder="اسم الناحية" required><button class="btn" style="margin-top:8px">إضافة</button></form></div>
+<div class="card"><h3>إضافة اسم</h3><form id="personForm"><input id="newPerson" placeholder="الاسم" required><button class="btn" style="margin-top:8px">إضافة</button></form></div>
+<div class="card"><h3>إضافة عميل</h3><form id="clientForm"><input id="newClient" placeholder="اسم العميل" required><button class="btn" style="margin-top:8px">إضافة</button></form></div>
+<div class="card"><h3>إضافة مشرف</h3><form id="supForm"><input id="newSup" placeholder="اسم المشرف" required><button class="btn" style="margin-top:8px">إضافة</button></form></div>
+</div>
+<div class="card" style="margin-top:18px"><h2>تحديد المستهدف حسب العميل والتاريخ</h2>
+<form id="targetForm"><div class="grid">
+<div class="field"><label>التاريخ</label><input type="date" id="targetDate" required></div>
+<div class="field"><label>العميل</label><select id="targetClient" required></select></div>
+<div class="field"><label>المستهدف</label><input type="number" id="targetValue" min="0" step=".01" required></div>
+</div><button class="btn">حفظ المستهدف</button></form></div>
+<div class="card" style="margin-top:18px"><h2>إدارة السجلات اليومية</h2>
+<div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الناحية</th><th>العميل</th><th>الجملة</th><th>إجراءات</th></tr></thead><tbody id="manageBody"></tbody></table></div>
+</div>
+<div class="card" style="margin-top:18px"><h2>البيانات المسجلة</h2><div class="table-wrap"><table><thead><tr><th>النواحي</th><th>الأسماء</th><th>العملاء</th><th>المشرفون</th></tr></thead><tbody id="basicTable"></tbody></table></div></div>
+</section>
+
+<section id="report" class="page">
+<div class="card">
+<h2>تقرير التحصيل</h2>
+<div class="grid">
+<div class="field"><label>من تاريخ</label><input type="date" id="fromDate"></div>
+<div class="field"><label>إلى تاريخ</label><input type="date" id="toDate"></div>
+<div class="field"><label>الناحية</label><select id="filterArea"></select></div>
+<div class="field"><label>العميل</label><select id="filterClient"></select></div>
+</div>
+<div class="actions">
+<button class="btn" onclick="renderReport()">عرض التقرير</button>
+<button class="btn secondary" onclick="window.print()">طباعة</button>
+<button class="btn excel" onclick="exportExcel()">تصدير Excel (.xlsx)</button>
+<button class="btn danger" onclick="clearFilters()">مسح الفلاتر</button>
+</div>
+</div>
+<div class="card" style="margin-top:18px"><div class="table-wrap"><table id="reportTable"><thead><tr>
+<th>التاريخ</th><th>الناحية</th><th>الاسم</th><th>العميل</th><th>المشرف</th><th>المستهدف</th><th>المطالبات</th><th>الإعفاءات</th><th>مديونية</th><th>تحت الحساب</th><th>الجملة</th><th>ملاحظات</th>
+</tr></thead><tbody id="reportBody"></tbody><tfoot id="reportFoot"></tfoot></table></div></div>
+</section>
+</div>
+
+<script>
+const KEY='collectionSystem_v1';
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||{areas:['الناحية الأولى'],persons:[],clients:['عميل 1'],supervisors:[],targets:[],daily:[]};
+
+function save(){localStorage.setItem(KEY,JSON.stringify(db));refreshAll()}
+function opts(el,arr,placeholder='-- اختر --',all=false){el.innerHTML=(all?'<option value="">الكل</option>':`<option value="">${placeholder}</option>`)+arr.map(x=>`<option>${escapeHtml(x)}</option>`).join('')}
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+
+function refreshAll(){
+ opts(area,db.areas);opts(person,db.persons);opts(client,db.clients);opts(supervisor,db.supervisors);
+ opts(targetClient,db.clients);opts(filterArea,db.areas,'-- اختر --',true);opts(filterClient,db.clients,'-- اختر --',true);
+ basicTable.innerHTML=`<tr><td>${db.areas.map(escapeHtml).join('، ')||'—'}</td><td>${db.persons.map(escapeHtml).join('، ')||'—'}</td><td>${db.clients.map(escapeHtml).join('، ')||'—'}</td><td>${db.supervisors.map(escapeHtml).join('، ')||'—'}</td></tr>`;
+ updateStats(); updateTarget();
+}
+
+function updateStats(){let d=db.daily;let sum=d.reduce((a,x)=>a+Number(x.total),0);stats.innerHTML=[['عدد السجلات',d.length],['عدد المطالبات',d.reduce((a,x)=>a+Number(x.claims),0)],['عدد الإعفاءات',d.reduce((a,x)=>a+Number(x.exemptions),0)],['إجمالي المحصل',sum.toFixed(2)]].map(x=>`<div class="card"><div class="label">${x[0]}</div><div class="stat">${x[1]}</div></div>`).join('')}
+
+function updateTarget(){
+ let t=db.targets.find(x=>x.date===date.value&&x.client===client.value);
+ target.value=t?t.value:0;
+ let s=db.daily.find(x=>x.date===date.value&&x.client===client.value&&x.area===area.value);
+ if(s){supervisor.value=s.supervisor||'';person.value=s.person||''}
+}
+
+[debt,advance].forEach(e=>e.addEventListener('input',()=>total.value=(Number(debt.value)||0)+(Number(advance.value)||0)));
+[date,client,area].forEach(e=>e.addEventListener('change',updateTarget));
+
+dailyForm.addEventListener('submit',e=>{
+ e.preventDefault();
+ let x={date:date.value,area:area.value,person:person.value,client:client.value,supervisor:supervisor.value,target:Number(target.value)||0,claims:Number(claims.value)||0,exemptions:Number(exemptions.value)||0,debt:Number(debt.value)||0,advance:Number(advance.value)||0,total:(Number(debt.value)||0)+(Number(advance.value)||0),notes:notes.value};
+ db.daily.push(x);
+ save();
+ dailyForm.reset();
+ date.value=new Date().toISOString().slice(0,10);
+ total.value=0;
+});
+
+[['areaForm','newArea','areas'],['personForm','newPerson','persons'],['clientForm','newClient','clients'],['supForm','newSup','supervisors']].forEach(([fid,iid,key])=>document.getElementById(fid).addEventListener('submit',e=>{e.preventDefault();let v=document.getElementById(iid).value.trim();if(v&&!db[key].includes(v))db[key].push(v);e.target.reset();save()}));
+
+targetForm.addEventListener('submit',e=>{e.preventDefault();let old=db.targets.find(x=>x.date===targetDate.value&&x.client===targetClient.value);if(old)old.value=Number(targetValue.value);else db.targets.push({date:targetDate.value,client:targetClient.value,value:Number(targetValue.value)});save();e.target.reset()});
+
+function renderReport(){
+ let f=fromDate.value,t=toDate.value,fa=filterArea.value,fc=filterClient.value;
+ let rows=db.daily.filter(x=>(!f||x.date>=f)&&(!t||x.date<=t)&&(!fa||x.area===fa)&&(!fc||x.client===fc));
+ reportBody.innerHTML=rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${escapeHtml(x.area)}</td><td>${escapeHtml(x.person||'—')}</td><td>${escapeHtml(x.client)}</td><td>${escapeHtml(x.supervisor||'—')}</td><td>${x.target}</td><td>${x.claims}</td><td>${x.exemptions}</td><td>${x.debt}</td><td>${x.advance}</td><td>${x.total}</td><td>${escapeHtml(x.notes||'')}</td></tr>`).join(''):`<tr><td colspan="12" class="empty">لا توجد بيانات للفترة المحددة</td></tr>`;
+ let sums=rows.reduce((a,x)=>(a.claims+=+x.claims,a.exemptions+=+x.exemptions,a.debt+=+x.debt,a.advance+=+x.advance,a.total+=+x.total,a.target+=+x.target,a),{claims:0,exemptions:0,debt:0,advance:0,total:0,target:0});
+ reportFoot.innerHTML=rows.length?`<tr class="total"><td colspan="5">الإجمالي</td><td>${sums.target}</td><td>${sums.claims}</td><td>${sums.exemptions}</td><td>${sums.debt.toFixed(2)}</td><td>${sums.advance.toFixed(2)}</td><td>${sums.total.toFixed(2)}</td><td></td></tr>`:'';
+}
+
+// دالة تصدير البيانات إلى ملف Excel باسم "تحليل البيانات"
+function exportExcel(){
+ const table = document.getElementById('reportTable');
+ const wb = XLSX.utils.table_to_book(table, {sheet: "تحليل البيانات"});
+ XLSX.writeFile(wb, `تحليل_البيانات_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));document.getElementById(b.dataset.page).classList.add('active');b.classList.add('active');if(b.dataset.page==='report')renderReport()});
+date.value=new Date().toISOString().slice(0,10);fromDate.value=new Date().toISOString().slice(0,10);toDate.value=fromDate.value;today.textContent=new Date().toLocaleDateString('ar-EG',{dateStyle:'full'});refreshAll();total.value=0;
+
+function renderManage(){
+ manageBody.innerHTML=db.daily.length?db.daily.map((x,i)=>`<tr><td>${x.date}</td><td>${escapeHtml(x.area)}</td><td>${escapeHtml(x.client)}</td><td>${x.total}</td><td><button class="btn small edit" onclick="editRecord(${i})">تعديل</button> <button class="btn small danger" onclick="deleteRecord(${i})">حذف</button></td></tr>`).join(''):`<tr><td colspan="5" class="empty">لا توجد سجلات</td></tr>`;
+}
+
+function deleteRecord(i){if(confirm('هل تريد حذف هذا السجل؟')){db.daily.splice(i,1);save();renderManage();renderReport()}}
+
+function editRecord(i){
+ const x=db.daily[i];
+ date.value=x.date;area.value=x.area;person.value=x.person;client.value=x.client;supervisor.value=x.supervisor;target.value=x.target;claims.value=x.claims;exemptions.value=x.exemptions;debt.value=x.debt;advance.value=x.advance;total.value=x.total;notes.value=x.notes||'';
+ db.daily.splice(i,1);save();document.querySelector('[data-page="home"]').click();window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function clearFilters(){fromDate.value='';toDate.value='';filterArea.value='';filterClient.value='';renderReport()}
+
+function drawCharts(){
+ const money=[db.daily.reduce((a,x)=>a+Number(x.debt),0),db.daily.reduce((a,x)=>a+Number(x.advance),0)];
+ const counts=[db.daily.reduce((a,x)=>a+Number(x.claims),0),db.daily.reduce((a,x)=>a+Number(x.exemptions),0)];
+ ['moneyChart','countChart'].forEach(id=>{const c=document.getElementById(id);const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height)});
+ drawBar(document.getElementById('moneyChart'),money,['مديونية','تحت الحساب']);
+ drawBar(document.getElementById('countChart'),counts,['مطالبات','إعفاءات']);
+}
+
+function drawBar(canvas,values,labels){
+ const ctx=canvas.getContext('2d'), w=canvas.width=canvas.clientWidth*2, h=canvas.height=canvas.clientHeight*2;
+ ctx.font='24px Tahoma'; const max=Math.max(...values,1), gap=w/(values.length*2+1);
+ values.forEach((v,i)=>{const bh=(v/max)*(h-70),x=gap+i*gap*2+gap/2,y=h-45-bh;ctx.fillStyle='#3159b7';ctx.fillRect(x,y,gap,bh);ctx.fillStyle='#334155';ctx.textAlign='center';ctx.fillText(labels[i],x+gap/2,h-12);ctx.fillText(Number(v).toLocaleString('ar-EG'),x+gap/2,y-8)});
+}
+
+const oldRefreshAll=refreshAll;
+refreshAll=function(){oldRefreshAll();renderManage();drawCharts()};
+</script>
+</body>
+</html>
