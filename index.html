@@ -18,6 +18,7 @@ table{width:100%;border-collapse:collapse;background:white;border-radius:14px;ov
 .total{font-weight:bold;background:#f3f6fb}.empty{padding:35px;text-align:center;color:#94a3b8}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}.wrap{padding:18px 3%}}
 canvas{width:100%!important}.btn.small{padding:7px 10px;font-size:12px}.edit{background:#d97706}
+@media print{nav,.actions,.notice,header{display:none!important}.wrap{max-width:none;padding:0}.card{box-shadow:none;border:0}}
 </style>
 </head>
 <body>
@@ -37,7 +38,7 @@ canvas{width:100%!important}.btn.small{padding:7px 10px;font-size:12px}.edit{bac
 </div>
 <div class="card" style="margin-top:18px">
 <h2 class="section-title">إدخال البيانات اليومية</h2>
-<div class="notice">اختر البيانات المطلوبة وسيرسل النظام السجل تلقائياً لجدول البيانات بعد الحفظ.</div>
+<div class="notice">اختر التاريخ والناحية والعميل، وسيتم حفظ البيانات وإرسالها مباشرة لشيت Google Sheets.</div>
 <form id="dailyForm">
 <div class="grid">
 <div class="field"><label>التاريخ</label><input type="date" id="date" required></div>
@@ -53,7 +54,7 @@ canvas{width:100%!important}.btn.small{padding:7px 10px;font-size:12px}.edit{bac
 <div class="field"><label>الجملة</label><input id="total" readonly value="0"></div>
 <div class="field"><label>ملاحظات</label><textarea id="notes"></textarea></div>
 </div>
-<div class="actions"><button class="btn" type="submit">حفظ وإرسال للرابط</button><button class="btn secondary" type="reset">مسح</button></div>
+<div class="actions"><button class="btn" type="submit">حفظ البيانات وإرسال</button><button class="btn secondary" type="reset">مسح</button></div>
 </form></div>
 </section>
 
@@ -94,8 +95,8 @@ canvas{width:100%!important}.btn.small{padding:7px 10px;font-size:12px}.edit{bac
 </div>
 
 <script>
-// ضع رابط Google Apps Script الخاص بك هنا
-const GOOGLE_SCRIPT_URL = "ضع_رابط_GOOGLE_SCRIPT_هنا";
+// ضع رابط الـ Web App الخاص بجوجل سكريبت هنا
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyFzjcfYtGtSZM1c5j8VEy1ay7H09UV-SQ6NCtjtz-Amg5ICmQnR7jL9JkmbRIrKeM4ig/exec";
 
 const KEY='collectionSystem_v1';
 let db=JSON.parse(localStorage.getItem(KEY)||'null')||{areas:['الناحية الأولى'],persons:[],clients:['عميل 1'],supervisors:[],targets:[],daily:[]};
@@ -125,7 +126,7 @@ function updateTarget(){
 
 dailyForm.addEventListener('submit',e=>{
  e.preventDefault();
- let x={
+ let record={
   date:date.value,
   area:area.value,
   person:person.value,
@@ -140,20 +141,23 @@ dailyForm.addEventListener('submit',e=>{
   notes:notes.value
  };
  
- db.daily.push(x);
+ db.daily.push(record);
  save();
 
- // إرسال البيانات للرابط أونلاين
- if(GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_URL !== "ضع_رابط_GOOGLE_SCRIPT_هنا") {
-     fetch(GOOGLE_SCRIPT_URL, {
-         method: 'POST',
-         mode: 'no-cors',
-         headers: {'Content-Type': 'application/json'},
-         body: JSON.stringify(x)
-     }).then(()=>alert("تم حفظ البيانات وإرسالها بنجاح!"))
-       .catch(err=>console.error(err));
+ if(GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_URL !== "ضع_رابط_GOOGLE_SCRIPT_هنا"){
+     fetch(GOOGLE_SCRIPT_URL,{
+         method:'POST',
+         mode:'no-cors',
+         headers:{'Content-Type':'application/json'},
+         body:JSON.stringify(record)
+     }).then(()=>{
+         alert("تم الحفظ وإرسال البيانات إلى Google Sheets بنجاح!");
+     }).catch(err=>{
+         console.error(err);
+         alert("تم الحفظ محلياً لكن تعذر الإرسال أونلاين.");
+     });
  } else {
-     alert("تم الحفظ محلياً. يرجى إضافة رابط Google Script لتفعيل الإرسال السحابي.");
+     alert("تم الحفظ محلياً. يرجى إضافة رابط Google Script لتفعيل الإرسال الشيت.");
  }
 
  dailyForm.reset();
